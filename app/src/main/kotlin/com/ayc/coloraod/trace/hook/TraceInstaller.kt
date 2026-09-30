@@ -47,7 +47,7 @@ internal object TraceInstaller {
         )
         installClass(
             runtime,
-            "com.oplus.systemui.aod.display.AODDisplayUtil$AODVirtualDozeClient",
+            "com.oplus.systemui.aod.display.AODDisplayUtil\$AODVirtualDozeClient",
             "AODVirtualDozeClient",
             TraceCategory.DISPLAY,
             exact = setOf("getVoteState", "setRequestState", "requestState", "updateState"),
@@ -72,7 +72,7 @@ internal object TraceInstaller {
         )
         installClass(
             runtime,
-            "com.oplus.systemui.aod.controller.PanoramicAodController$startPanoramicAodShowAnim$1$1",
+            "com.oplus.systemui.aod.controller.PanoramicAodController\$startPanoramicAodShowAnim\$1\$1",
             "PanoramicAnimatorListener",
             TraceCategory.PANORAMIC,
             exact = setOf("onAnimationStart", "onAnimationEnd", "onAnimationCancel"),
@@ -97,7 +97,7 @@ internal object TraceInstaller {
         )
         installClass(
             runtime,
-            "com.oplus.systemui.aod.aodclock.off.AodUpdateManager$2",
+            "com.oplus.systemui.aod.aodclock.off.AodUpdateManager\$2",
             "AodUpdateManagerSensor",
             TraceCategory.RULE,
             exact = setOf("hideAodByDarkLight"),
@@ -113,7 +113,7 @@ internal object TraceInstaller {
         )
         installClass(
             runtime,
-            "com.oplus.systemui.aod.display.OplusWakeUpController$AodSingleClickWakeUpCallback",
+            "com.oplus.systemui.aod.display.OplusWakeUpController\$AodSingleClickWakeUpCallback",
             "AodSingleClickWakeUpCallback",
             TraceCategory.WAKE,
             exact = setOf("onClick"),
