@@ -75,24 +75,68 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/SIGNATURE_INFO.txt
           "$BT/aapt" dump badging "$APK" | tee /tmp/badging.txt
 
-          grep -q "versionCode='1'" /tmp/badging.txt
-          grep -q "versionName='0.1.0-alpha1'" /tmp/badging.txt
+          echo "[verify] badging version"
+          if ! grep -q "versionCode='1'" /tmp/badging.txt; then
+            echo "::error::APK versionCode mismatch"
+            exit 1
+          fi
+          if ! grep -q "versionName='0.1.0-alpha1'" /tmp/badging.txt; then
+            echo "::error::APK versionName mismatch"
+            exit 1
+          fi
+          echo "[verify] badging OK"
 
-          unzip -p "$APK" META-INF/xposed/module.prop > /tmp/xposed-module.prop
-          unzip -p "$APK" META-INF/xposed/java_init.list > /tmp/xposed-java-init.list
-          unzip -p "$APK" META-INF/xposed/scope.list > /tmp/xposed-scope.list
-          unzip -l "$APK" > /tmp/apk-list.txt
+          echo "[verify] APK file listing"
+          if ! unzip -l "$APK" > /tmp/apk-list.txt; then
+            echo "::error::Unable to list APK contents"
+            exit 1
+          fi
+          grep -i 'META-INF/xposed' /tmp/apk-list.txt || true
 
-          grep -q "targetApiVersion=102" /tmp/xposed-module.prop
-          grep -q "com.ayc.coloraodtrace.ModuleEntry" /tmp/xposed-java-init.list
-          grep -q '^com.android.systemui$' /tmp/xposed-scope.list
+          echo "[verify] module.prop"
+          if ! unzip -p "$APK" META-INF/xposed/module.prop > /tmp/xposed-module.prop; then
+            echo "::error::Unable to extract META-INF/xposed/module.prop"
+            exit 1
+          fi
+          cat /tmp/xposed-module.prop
+          if ! grep -q "targetApiVersion=102" /tmp/xposed-module.prop; then
+            echo "::error::targetApiVersion=102 missing from module.prop"
+            exit 1
+          fi
+
+          echo "[verify] java_init.list"
+          if ! unzip -p "$APK" META-INF/xposed/java_init.list > /tmp/xposed-java-init.list; then
+            echo "::error::Unable to extract META-INF/xposed/java_init.list"
+            exit 1
+          fi
+          cat /tmp/xposed-java-init.list
+          if ! grep -q "com.ayc.coloraodtrace.ModuleEntry" /tmp/xposed-java-init.list; then
+            echo "::error::ModuleEntry missing from java_init.list"
+            exit 1
+          fi
+
+          echo "[verify] scope.list"
+          if ! unzip -p "$APK" META-INF/xposed/scope.list > /tmp/xposed-scope.list; then
+            echo "::error::Unable to extract META-INF/xposed/scope.list"
+            exit 1
+          fi
+          cat /tmp/xposed-scope.list
+          if ! grep -q '^com.android.systemui$' /tmp/xposed-scope.list; then
+            echo "::error::SystemUI scope missing"
+            exit 1
+          fi
 
           if grep -q "assets/xposed_init" /tmp/apk-list.txt; then
             echo "::error::Legacy assets/xposed_init found in APK"
             exit 1
           fi
+          echo "[verify] Xposed metadata OK"
 
-          unzip -p "$APK" 'classes*.dex' | strings > /tmp/dex-strings.txt
+          echo "[verify] DEX markers"
+          if ! unzip -p "$APK" 'classes*.dex' | strings > /tmp/dex-strings.txt; then
+            echo "::error::Unable to extract DEX strings"
+            exit 1
+          fi
 
           check_dex() {
             pattern="$1"
@@ -101,6 +145,7 @@ jobs:
               echo "::error::Missing required DEX marker: $label ($pattern)"
               exit 1
             fi
+            echo "[verify] DEX marker OK: $label"
           }
 
           check_dex "PanoramicAodController" "Panoramic controller runtime class"
@@ -114,6 +159,7 @@ jobs:
             echo "::error::Legacy Xposed API marker found in release DEX"
             exit 1
           fi
+          echo "[verify] DEX OK"
 
           cp "$APK" /tmp/ColorOS-AOD-Trace-v0.1.0-alpha1.apk
           cp tools/capture-aod-trace.sh /tmp/capture-aod-trace.sh
