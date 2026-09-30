@@ -69,10 +69,85 @@ jobs:
           "$BT/aapt" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "versionCode='1'" /tmp/badging.txt
           grep -q "versionName='0.1.0-alpha1'" /tmp/badging.txt
-          unzip -p "$APK" META-INF/xposed/module.prop | grep -q "targetApiVersion=102"
-          unzip -p "$APK" META-INF/xposed/java_init.list | grep -q "com.ayc.coloraodtrace.ModuleEntry"
-          unzip -p "$APK" META-INF/xposed/scope.list | grep -q '^com.android.systemui$'
-          ! unzip -l "$APK" | grep -q "assets/xposed_init"
+          unzip -p "$APK" META-INF/xposed/module.prop > /tmp/xposed-module.prop
+          unzip -p "$APK" META-INF/xposed/java_init.list > /tmp/xposed-java-init.list
+          unzip -p "$APK" META-INF/xposed/scope.list > /tmp/xposed-scope.list
+          unzip -l "$APK" > /tmp/apk-list.txt
+          grep -q "targetApiVersion=102" /tmp/xposed-module.prop
+          grep -q "com.ayc.coloraodtrace.ModuleEntry" /tmp/xposed-java-init.list
+          grep -q '^com.android.systemui
+          check_dex() {
+            local pattern="$1"
+            local label="$2"
+            if ! grep -q "$pattern" /tmp/dex-strings.txt; then
+              echo "::error::Missing required DEX marker: $label ($pattern)"
+              exit 1
+            fi
+          }
+          check_dex "PanoramicAodController" "Panoramic controller runtime class"
+          check_dex "AodBlackLayout" "AOD UI runtime class"
+          check_dex "AODDisplayUtil" "AOD display runtime class"
+          check_dex "OplusWakeUpController" "wake controller runtime class"
+          check_dex "AOD_SESSION_START" "session lifecycle log marker"
+          check_dex "AODT" "structured trace prefix"
+          if grep -q "de.robv.android.xposed" /tmp/dex-strings.txt; then
+            echo "::error::Legacy Xposed API marker found in release DEX"
+            exit 1
+          fi
+
+          cp "$APK" /tmp/ColorOS-AOD-Trace-v0.1.0-alpha1.apk
+          cp tools/capture-aod-trace.sh /tmp/capture-aod-trace.sh
+          cp tools/summarize-aod-trace.sh /tmp/summarize-aod-trace.sh
+          sha256sum /tmp/ColorOS-AOD-Trace-v0.1.0-alpha1.apk /tmp/capture-aod-trace.sh /tmp/summarize-aod-trace.sh | tee /tmp/SHA256SUMS.txt
+
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v0.1.0-alpha1 --yes >/dev/null 2>&1 || true
+          cat > /tmp/release-notes.md <<'EOF'
+          ## ColorOS AOD Trace v0.1.0 Alpha1
+
+          第一版独立 ColorOS AOD / Doze 全链路只读追踪工具。
+
+          ### 能力
+          - Modern libxposed API 102。
+          - 作用域仅 SystemUI。
+          - AOD session 时间线与 elapsedMs。
+          - 方法 ENTER / EXIT / THROW。
+          - 参数、返回值、关键字段 before/after/diff。
+          - 可选调用栈。
+          - 基础 / 完整 / Panoramic / Display-Doze / Wake-Unlock 预设。
+          - 深度追踪 PanoramicAodController、动画结束回调、AodBlackLayout、AODDisplayUtil、DozeMachine、指纹/唤醒链。
+          - 附带 root 日志采集和摘要脚本。
+
+          ### 安全模型
+          追踪器不修改 Hook 参数和返回值，不拦截 OFF，不改变 DOZE/DOZE_SUSPEND，不阻止 DreamService.finish。
+
+          ### 使用
+          安装并在 LSPosed 中启用，作用域选择 SystemUI。将 capture-aod-trace.sh 放到 Download 后执行：
+
+          `su -c 'sh /storage/emulated/0/Download/capture-aod-trace.sh'`
+
+          日志输出到 `/storage/emulated/0/Documents/ColorOS-AOD-Trace/log/`。
+
+          这是诊断 Alpha 版本，重点用于当前 ColorOS AOD 默认时长 / UI hide 链路分析。
+          EOF
+
+          gh release create v0.1.0-alpha1 \
+            /tmp/ColorOS-AOD-Trace-v0.1.0-alpha1.apk \
+            /tmp/capture-aod-trace.sh \
+            /tmp/summarize-aod-trace.sh \
+            /tmp/SHA256SUMS.txt \
+            /tmp/SIGNATURE_INFO.txt \
+            --title "ColorOS AOD Trace v0.1.0 Alpha1" \
+            --notes-file /tmp/release-notes.md \
+            --prerelease
+ /tmp/xposed-scope.list
+          if grep -q "assets/xposed_init" /tmp/apk-list.txt; then
+            echo "::error::Legacy assets/xposed_init found in APK"
+            exit 1
+          fi
           unzip -p "$APK" 'classes*.dex' | strings > /tmp/dex-strings.txt
           check_dex() {
             local pattern="$1"
