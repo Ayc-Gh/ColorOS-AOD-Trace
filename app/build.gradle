@@ -1,0 +1,115 @@
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+}
+
+def setupAapt2Wrapper() {
+    def osArch = System.getProperty("os.arch")?.toLowerCase() ?: ""
+    if (!osArch.contains("aarch64") && !osArch.contains("arm64")) return
+    def qemu = file("/usr/bin/qemu-x86_64-static")
+    if (!qemu.exists()) {
+        throw new GradleException("ARM64 build host requires qemu-x86_64-static")
+    }
+    def transformDir = file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/transforms")
+    if (!transformDir.exists()) return
+    transformDir.eachFileRecurse { f ->
+        if (f.name == "aapt2" && f.isFile() && f.canExecute()) {
+            def backup = file("${f.absolutePath}.bin")
+            if (backup.exists()) return
+            f.renameTo(backup)
+            f.text = """#!/bin/bash
+DIR="\$(dirname "\$0")"
+exec ${qemu.absolutePath} "\$DIR/aapt2.bin" "\$@"
+"""
+            f.setExecutable(true)
+        }
+    }
+}
+
+tasks.matching { it.name ==~ /process(Release|Debug)Resources/ }.configureEach {
+    doFirst { setupAapt2Wrapper() }
+}
+
+android {
+    namespace = 'com.ayc.coloraod.trace'
+    compileSdk = 37
+
+    def keystoreProps = new Properties()
+    def keystoreFile = rootProject.file('keystore.properties')
+    if (keystoreFile.exists()) {
+        keystoreFile.withInputStream { keystoreProps.load(it) }
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreFile.exists()) signingConfig = signingConfigs.release
+        }
+    }
+
+    defaultConfig {
+        applicationId = 'com.ayc.coloraod.trace'
+        minSdk = 33
+        targetSdk = 36
+        versionCode = 1
+        versionName = '0.1.0'
+    }
+
+    splits {
+        abi {
+            enable = true
+            reset()
+            include 'arm64-v8a'
+            universalApk = false
+        }
+    }
+
+    packaging {
+        resources {
+            merges += 'META-INF/xposed/*'
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+        compose = true
+    }
+
+    lint { checkReleaseBuilds true }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation platform(libs.androidx.compose.bom)
+    implementation libs.androidx.activity.compose
+    implementation libs.androidx.compose.ui
+    implementation libs.androidx.compose.material3
+    implementation libs.androidx.compose.foundation
+    debugImplementation libs.androidx.compose.ui.tooling
+    debugImplementation libs.androidx.compose.ui.test.manifest
+
+    compileOnly libs.libxposed.api
+    implementation libs.libxposed.service
+    implementation libs.androidx.core.ktx
+
+    testImplementation 'junit:junit:4.13.2'
+}
