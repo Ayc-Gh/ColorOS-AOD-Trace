@@ -74,14 +74,24 @@ jobs:
           unzip -p "$APK" META-INF/xposed/scope.list | grep -q '^com.android.systemui$'
           ! unzip -l "$APK" | grep -q "assets/xposed_init"
           unzip -p "$APK" 'classes*.dex' | strings > /tmp/dex-strings.txt
-          grep -q "AOD_SESSION_START" /tmp/dex-strings.txt
-          grep -q "PanoramicAodController" /tmp/dex-strings.txt
-          grep -q "PanoramicShowAnimCallback" /tmp/dex-strings.txt
-          grep -q "AodBlackLayout" /tmp/dex-strings.txt
-          grep -q "AODDisplayUtil" /tmp/dex-strings.txt
-          grep -q "OplusWakeUpController" /tmp/dex-strings.txt
-          grep -q "AODT" /tmp/dex-strings.txt
-          ! grep -q "de.robv.android.xposed" /tmp/dex-strings.txt
+          check_dex() {
+            local pattern="$1"
+            local label="$2"
+            if ! grep -q "$pattern" /tmp/dex-strings.txt; then
+              echo "::error::Missing required DEX marker: $label ($pattern)"
+              exit 1
+            fi
+          }
+          check_dex "PanoramicAodController" "Panoramic controller runtime class"
+          check_dex "AodBlackLayout" "AOD UI runtime class"
+          check_dex "AODDisplayUtil" "AOD display runtime class"
+          check_dex "OplusWakeUpController" "wake controller runtime class"
+          check_dex "AOD_SESSION_START" "session lifecycle log marker"
+          check_dex "AODT" "structured trace prefix"
+          if grep -q "de.robv.android.xposed" /tmp/dex-strings.txt; then
+            echo "::error::Legacy Xposed API marker found in release DEX"
+            exit 1
+          fi
 
           cp "$APK" /tmp/ColorOS-AOD-Trace-v0.1.0-alpha1.apk
           cp tools/capture-aod-trace.sh /tmp/capture-aod-trace.sh
