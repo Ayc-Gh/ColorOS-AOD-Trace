@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ColorOS AOD Trace</string>
+    <string name="xposed_description">ColorOS AOD/Doze full-chain passive tracer for LSPosed</string>
+</resources>
