@@ -43,7 +43,7 @@ internal object TraceMethodInterceptor {
                     val args = TraceSnapshot.args(method) { argIndex ->
                         runCatching { chain.getArg(argIndex) }.getOrNull()
                     }
-                    val stack = if (forceStack || config.includeStacks) {
+                    val stack = if (config.includeStacks) {
                         TraceSnapshot.stack(config.maxStackFrames)
                     } else {
                         ""
@@ -118,7 +118,7 @@ internal object TraceMethodInterceptor {
                 val target = chain.getThisObject()
                 val before = if (config.includeFieldDiffs) TraceSnapshot.capture(target) else emptyMap()
                 val args = TraceSnapshot.args(method) { i -> runCatching { chain.getArg(i) }.getOrNull() }
-                val stack = if (forceStack || config.includeStacks) TraceSnapshot.stack(config.maxStackFrames) else ""
+                val stack = if (config.includeStacks) TraceSnapshot.stack(config.maxStackFrames) else ""
 
                 TraceLog.event(
                     "ENTER",
