@@ -1,0 +1,69 @@
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace = 'com.ayc.coloraodtrace'
+    compileSdk = 37
+
+    def keystoreProps = new Properties()
+    def keystoreFile = rootProject.file('keystore.properties')
+    if (keystoreFile.exists()) {
+        keystoreFile.withInputStream { keystoreProps.load(it) }
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId = 'com.ayc.coloraodtrace'
+        minSdk = 33
+        targetSdk = 36
+        versionCode = 1
+        versionName = '0.1.0-alpha1'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreFile.exists()) signingConfig = signingConfigs.release
+        }
+    }
+
+    packaging {
+        resources {
+            merges += 'META-INF/xposed/*'
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    lint {
+        checkReleaseBuilds true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    compileOnly libs.libxposed.api
+    implementation libs.libxposed.service
+    testImplementation 'junit:junit:4.13.2'
+}
