@@ -143,6 +143,15 @@ internal object TraceInstaller {
 
         TraceMethodInterceptor.install(
             runtime = runtime,
+            className = "com.oplus.systemui.aod.controller.PanoramicAodController\$startPanoramicAodShowAnim\$1\$1",
+            source = "PanoramicShowAnimCallback",
+            category = TraceCategory.PANORAMIC,
+            exact = setOf("onAnimationStart", "onAnimationEnd", "onAnimationCancel", "onAnimationRepeat"),
+            forceStack = true,
+        )
+
+        TraceMethodInterceptor.install(
+            runtime = runtime,
             className = "com.oplus.systemui.aod.controller.BaseAodController",
             source = "BaseAodController",
             category = TraceCategory.PANORAMIC,
